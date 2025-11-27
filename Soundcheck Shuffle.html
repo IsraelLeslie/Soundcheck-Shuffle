@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundCheck Shuffle</title>
+    <style>
+        :root {
+            /* Active Theme Variables (Dark Mode Only) */
+            --text-color: #ffffff;
+            --bg-color: #000000;
+            --subtle-color: #333333;
+            --subtle-text: #666666;
+            --reveal-color: #6C5CE7; /* Purple for active reveal */
+            --modal-bg: rgba(0, 0, 0, 0.95);
+
+            /* Action Colors (Constant) */
+            --accent-color: #4CAF50; /* Green for adds/restores */
+            --danger-color: #f44336; /* Red for removals/resets */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        #question {
+            font-size: 5vw; 
+            font-weight: 700;
+            line-height: 1.3;
+            max-width: 90%; 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            white-space: pre-wrap;
+            /* UPDATED: Transition opacity for smooth fade */
+            transition: opacity 0.3s ease-in-out; 
+            opacity: 1; /* Default to visible */
+        }
+
+        /* Blackout state: text fades to fully transparent */
+        #question.blacked-out {
+            opacity: 0; 
+        }
+
+        /* Base Button Style (Next/Edit/Toggle) */
+        .utility-button {
+            position: fixed; 
+            bottom: 20px;
+            
+            width: 50px;
+            height: 50px; 
+            padding: 0;
+            
+            background: transparent;
+            color: var(--subtle-text);
+            border: 2px solid var(--subtle-color);
+            font-size: 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            outline: none;
+            user-select: none;
+            z-index: 10;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .utility-button:hover, .utility-button:active {
+            color: var(--text-color);
+            border-color: var(--text-color);
+            transform: scale(1.05); 
+        }
+        
+        #next-button {
+            left: 20px;
+        }
+        
+        #edit-button {
+            right: 20px;
+            font-size: 1.2rem; /* Pencil icon is smaller */
+        }
+
+        #blackout-button {
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.2rem;
+            line-height: 1;
+            color: var(--subtle-text); 
+            border-color: var(--subtle-color);
+        }
+        
+        #blackout-button.active-reveal {
+            background-color: var(--reveal-color);
+            color: var(--text-color);
+            border-color: var(--reveal-color);
+        }
+
+        /* Modal Styles */
+        #edit-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--modal-bg);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal-content {
+            max-width: 700px;
+            margin: 40px auto;
+            text-align: left;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--subtle-color);
+            padding-bottom: 10px;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 2rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        /* Question Management UI */
+        .section-title {
+            font-size: 1.2rem;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--subtle-text);
+            padding-left: 10px;
+            color: var(--subtle-text);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #new-question-input, #generator-theme-input {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+        
+        #generator-theme-input {
+             margin-bottom: 10px;
+        }
+
+
+        .action-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        
+        .add-btn { background-color: var(--accent-color); color: var(--bg-color); }
+        .reset-btn { background-color: var(--danger-color); color: var(--text-color); }
+        .remove-btn { background-color: var(--danger-color); color: var(--text-color); padding: 5px 10px; font-size: 0.85rem; }
+        .restore-btn { background-color: var(--accent-color); color: var(--bg-color); padding: 5px 10px; font-size: 0.85rem; }
+        .generate-btn-style { background-color: var(--reveal-color); color: var(--text-color); }
+
+        .question-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .question-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px dashed var(--subtle-color);
+            color: var(--text-color);
+        }
+
+        .question-item:last-child {
+            border-bottom: none;
+        }
+
+        .question-text {
+            flex-grow: 1;
+            padding-right: 15px;
+            color: var(--text-color);
+        }
+        
+        .removed-text {
+            color: var(--subtle-text);
+        }
+        
+        /* --- Custom Switch Toggle CSS for Scheduling --- */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 45px;
+            height: 25px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--subtle-color);
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 17px;
+            width: 17px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .slider.round {
+            border-radius: 34px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+        /* --- End Switch CSS --- */
+
+        /* Responsive adjustments */
+        @media (max-width: 800px) {
+            #question {
+                font-size: 8vw;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="question">Ready?</div>
+    
+    <!-- Next Question Button (Bottom Left) --><button id="next-button" class="utility-button" onclick="nextQuestion()">&#10140;</button>
+
+    <!-- Blackout Toggle Button (Bottom Center) --><button id="blackout-button" class="utility-button" onclick="toggleBlackout()" title="Toggle Blackout">&#9679;</button>
+
+    <!-- Edit List Button (Bottom Right) --><button id="edit-button" class="utility-button" onclick="openModal()" title="Edit Questions">&#9998;</button>
+
+    <!-- Question Management Modal --><div id="edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Question Manager</h2>
+                <button class="close-button" onclick="closeModal()">&times;</button>
+            </div>
+
+            <!-- Scheduling Options -->
+            <div class="section-title">Daily Automation</div>
+            <div style="margin-bottom: 20px; padding: 10px; border: 1px solid var(--subtle-color); border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <label for="schedule-toggle" style="font-weight: 600;">Enable Daily Automatic Switch</label>
+                    <label class="switch">
+                        <input type="checkbox" id="schedule-toggle" onchange="saveScheduleSettings()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div id="schedule-controls">
+                    <label for="switch-time">Switch Time (Local Time):</label>
+                    <input type="time" id="switch-time" onchange="saveScheduleSettings()" style="margin-left: 10px; padding: 5px; border-radius: 4px; border: 1px solid var(--subtle-color); background-color: var(--subtle-color); color: var(--text-color);" value="08:00">
+                    <p style="font-size: 0.8rem; color: var(--subtle-text); margin-top: 10px;">Last automated switch: <span id="last-switch-date">Never</span></p>
+                </div>
+            </div>
+
+            <!-- Add New Question (Manual) --><div class="section-title">Add New Question (Manual)</div>
+            <div class="input-group">
+                <input type="text" id="new-question-input" placeholder="Enter a new mic check question">
+                <button class="action-btn add-btn" onclick="addQuestion()">Add</button>
+            </div>
+            
+            <!-- Gemini API Generator (New Feature) --><div class="section-title" style="margin-top: 30px; border-left-color: var(--reveal-color);">✨ Generate New Questions</div>
+            <div class="input-group" style="flex-direction: column;">
+                <input type="text" id="generator-theme-input" placeholder="e.g., 'Sci-fi', 'Victorian Era', 'Musical Theatre'" style="margin-bottom: 10px;">
+                <button class="action-btn generate-btn-style" id="generate-btn" onclick="generateQuestions()">
+                    ✨ Generate 5 Questions
+                </button>
+            </div>
+            <div id="generation-status" style="color: var(--subtle-text); font-size: 0.9rem; margin-top: -15px; margin-bottom: 15px; min-height: 20px;"></div>
+            
+
+            <!-- Active Questions --><div class="section-title">Active Questions (<span id="active-count">0</span>)</div>
+            <p style="color: var(--subtle-text); font-size: 0.9rem;">Questions in this list will be asked once, then moved to "Used" until the list is empty and automatically reset.</p>
+            <ul id="active-questions-list" class="question-list">
+                <!-- Active questions inserted here by JS --></ul>
+            
+            <!-- Used Questions --><div class="section-title">Used Questions (<span id="used-count">0</span>)</div>
+            <p style="color: var(--subtle-text); font-size: 0.9rem;">These have been asked in the current cycle. They will automatically refill the Active list when it is empty.</p>
+            <ul id="used-questions-list" class="question-list">
+                <!-- Used questions inserted here by JS --></ul>
+
+            <!-- Removed Questions --><div class="section-title">Removed Questions (<span id="removed-count">0</span>)</div>
+            <ul id="removed-questions-list" class="question-list">
+                <!-- Removed questions inserted here by JS --></ul>
+
+            <div style="text-align: right; margin-top: 30px;">
+                <button class="action-btn reset-btn" onclick="resetCycle()">Force Reset Cycle</button>
+                <button class="action-btn reset-btn" onclick="resetAllToDefault()" style="margin-left: 10px;">Reset All to Default List</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- LLM API Configuration ---
+        const apiKey = ""; // Canvas will provide this key at runtime
+        const LLM_MODEL = 'gemini-2.5-flash-preview-09-2025';
+        const LLM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${LLM_MODEL}:generateContent?key=${apiKey}`;
+
+        const STORAGE_KEY_ACTIVE = 'micCheckActive';
+        const STORAGE_KEY_REMOVED = 'micCheckRemoved';
+        const STORAGE_KEY_USED = 'micCheckUsed'; 
+        const STORAGE_KEY_SCHEDULE_SETTINGS = 'micCheckSchedule';
+
+        let activeQuestions = [];
+        let removedQuestions = [];
+        let usedQuestions = [];
+        let lastQuestion = "";
+        let isBlackedOut = true;
+        
+        let scheduleSettings = {
+            enabled: false,
+            switchTime: '08:00', // Default switch time (HH:MM)
+            lastSwitchDate: null  // Date string of the last time an automatic switch occurred (YYYY-MM-DD)
+        };
+
+        const defaultQuestions = [
+            "Everyone hears a sound effect when you enter the room, what is it?",
+            "What fictional character's voice would you use for an alarm clock?",
+            "You're suddenly in a commercial, what are you advertising?",
+            "Which cast member would you trust to pick your outfit for opening night?",
+            "You get a magical button that performs a mundane task for you, what does it do?",
+            "What would you do to get banned from the local library?",
+            "If you had to deliver a TED Talk right now with zero preparation. What is the topic?",
+            "If animals could talk, which species would be the rudest?",
+            "If you could make one mundane thing illegal, what would it be?",
+            "If you had to wear one color for the rest of your life, what would it be?",
+            "Who would play you in a biopic of your life?",
+            "You are a ghost haunting this theatre. How do you annoy the actors?",
+            "You are an action figure. What is the one accessory you come with?",
+            "What's a future invention from movies that you're annoyed we don't have yet?",
+            "Which font would you be?"
+        ];
+
+        // --- Persistence and State Management ---
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function loadQuestions() {
+            const storedActive = localStorage.getItem(STORAGE_KEY_ACTIVE);
+            const storedRemoved = localStorage.getItem(STORAGE_KEY_REMOVED);
+            const storedUsed = localStorage.getItem(STORAGE_KEY_USED);
+            const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE_SETTINGS);
+
+            removedQuestions = storedRemoved ? JSON.parse(storedRemoved) : [];
+            usedQuestions = storedUsed ? JSON.parse(storedUsed) : [];
+
+            if (storedSchedule) {
+                scheduleSettings = JSON.parse(storedSchedule);
+            }
+
+            if (storedActive) {
+                activeQuestions = JSON.parse(storedActive);
+            } else {
+                // First run or full reset, use defaults
+                activeQuestions = [...defaultQuestions];
+                shuffleArray(activeQuestions);
+            }
+            
+            // Check if active and used are empty and reset cycle if needed
+            if (activeQuestions.length === 0 && usedQuestions.length > 0) {
+                activeQuestions = usedQuestions;
+                usedQuestions = [];
+                shuffleArray(activeQuestions);
+                console.log("Automatic cycle reset performed.");
+            }
+            
+            saveQuestions();
+            updateModalUI();
+        }
+
+        function saveQuestions() {
+            localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(activeQuestions));
+            localStorage.setItem(STORAGE_KEY_REMOVED, JSON.stringify(removedQuestions));
+            localStorage.setItem(STORAGE_KEY_USED, JSON.stringify(usedQuestions));
+            localStorage.setItem(STORAGE_KEY_SCHEDULE_SETTINGS, JSON.stringify(scheduleSettings));
+            updateModalUI();
+        }
+        
+        function saveScheduleSettings() {
+            scheduleSettings.enabled = document.getElementById('schedule-toggle').checked;
+            scheduleSettings.switchTime = document.getElementById('switch-time').value || '08:00'; // Default safety
+            
+            // If scheduling is enabled, run an immediate check 
+            if (scheduleSettings.enabled) {
+                checkDailySwitch();
+            }
+            saveQuestions();
+        }
+
+
+        // --- Blackout Logic ---
+
+        function toggleBlackout() {
+            const questionEl = document.getElementById('question');
+            const button = document.getElementById('blackout-button');
+            isBlackedOut = !isBlackedOut;
+            
+            if (isBlackedOut) {
+                questionEl.classList.add('blacked-out');
+                button.classList.remove('active-reveal');
+            } else {
+                questionEl.classList.remove('blacked-out');
+                button.classList.add('active-reveal');
+            }
+        }
+        
+        function enforceBlackout() {
+            isBlackedOut = true;
+            document.getElementById('question').classList.add('blacked-out');
+            document.getElementById('blackout-button').classList.remove('active-reveal');
+        }
+
+
+        // --- Main App Logic ---
+
+        function nextQuestion() {
+            const display = document.getElementById('question');
+
+            if (activeQuestions.length === 0) {
+                if (usedQuestions.length === 0) {
+                    display.innerText = "All questions used! Add more or reset the cycle in the editor (bottom right).";
+                    enforceBlackout();
+                    return;
+                }
+                // Automatic Cycle Reset
+                activeQuestions = usedQuestions;
+                usedQuestions = [];
+                shuffleArray(activeQuestions);
+                saveQuestions(); // Save the new, shuffled active list
+                
+                // Show confirmation message briefly before the question
+                display.innerText = "Cycle Reset: All questions are back in the pool!";
+                // Ensure text is visible for this message before blacking out for the next
+                document.getElementById('question').classList.remove('blacked-out');
+                document.getElementById('blackout-button').classList.add('active-reveal');
+
+                setTimeout(() => nextQuestion(), 2000); 
+                return;
+            }
+
+            // Get a question and ensure it's not the exact same as the last one displayed
+            let newQuestion = activeQuestions.pop();
+            if (newQuestion === lastQuestion && activeQuestions.length > 0) {
+                activeQuestions.unshift(newQuestion); // Put it back at the start
+                newQuestion = activeQuestions.pop(); // Take the next one
+            }
+            lastQuestion = newQuestion;
+            
+            usedQuestions.push(newQuestion);
+            saveQuestions();
+
+            display.innerText = newQuestion;
+            enforceBlackout(); // New question loaded, black it out automatically
+        }
+        
+        // --- Scheduling Logic ---
+        
+        function checkDailySwitch() {
+            if (!scheduleSettings.enabled) {
+                return;
+            }
+
+            const now = new Date();
+            const todayDateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            
+            // 1. Check if an automatic switch already happened today
+            if (scheduleSettings.lastSwitchDate === todayDateStr) {
+                return;
+            }
+
+            // 2. Check if the scheduled time has passed
+            const [scheduledHour, scheduledMinute] = scheduleSettings.switchTime.split(':').map(Number);
+            
+            // Calculate minutes since midnight for comparison
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            const scheduledMinutes = scheduledHour * 60 + scheduledMinute;
+
+            if (nowMinutes >= scheduledMinutes) {
+                console.log(`[Scheduler] Automatic switch triggered at ${now.toLocaleTimeString()}.`);
+                
+                // Update the last switch date BEFORE calling nextQuestion and saving
+                scheduleSettings.lastSwitchDate = todayDateStr;
+                saveQuestions();
+
+                // Perform the switch
+                nextQuestion(); 
+            }
+        }
+        
+        // --- LLM Utility Functions ---
+
+        async function exponentialBackoffFetch(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429) {
+                        if (i === maxRetries - 1) throw new Error("API rate limit exceeded.");
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        throw new Error(`API call failed: ${response.status} - ${errorBody}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        async function generateQuestions() {
+            const themeInput = document.getElementById('generator-theme-input');
+            const statusDiv = document.getElementById('generation-status');
+            const generateBtn = document.getElementById('generate-btn');
+            const theme = themeInput.value.trim() || 'random, creative, and quirky';
+            
+            statusDiv.innerHTML = 'Generating questions... (This may take a few seconds)';
+            generateBtn.disabled = true;
+
+            const userQuery = `Generate 5 new, short, and highly creative mic check questions for theatre actors. The questions should be about a ${theme} theme. Focus on fun, quick, one-line answers that reveal personality or acting quirks.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: { "type": "STRING" }
+                    }
+                },
+            };
+
+            try {
+                const response = await exponentialBackoffFetch(LLM_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+
+                let generatedJsonString = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (!generatedJsonString) {
+                     throw new Error("Received an empty response from the model.");
+                }
+                
+                // Remove markdown triple quotes if present
+                if (generatedJsonString.startsWith("```json")) {
+                    generatedJsonString = generatedJsonString.substring(7);
+                }
+                if (generatedJsonString.endsWith("```")) {
+                    generatedJsonString = generatedJsonString.substring(0, generatedJsonString.length - 3);
+                }
+                
+                const generatedQuestions = JSON.parse(generatedJsonString);
+
+                if (Array.isArray(generatedQuestions) && generatedQuestions.length > 0) {
+                    let count = 0;
+                    generatedQuestions.forEach(q => {
+                        const newQ = q.trim();
+                        // Check against all lists to prevent duplicates
+                        if (newQ && ![...activeQuestions, ...usedQuestions, ...removedQuestions].includes(newQ)) {
+                            activeQuestions.push(newQ);
+                            count++;
+                        }
+                    });
+                    
+                    shuffleArray(activeQuestions);
+                    saveQuestions();
+                    themeInput.value = '';
+                    statusDiv.innerHTML = `Successfully added ${count} new questions to the Active list!`;
+                } else {
+                    statusDiv.innerHTML = "Generation failed: The model did not return a valid list of questions. Please try a different theme.";
+                }
+
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                statusDiv.innerHTML = `Error: Failed to generate questions. ${error.message}`;
+            } finally {
+                generateBtn.disabled = false;
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                    updateModalUI();
+                }, 3000);
+            }
+        }
+
+
+        // --- Modal & Editor Logic ---
+
+        function openModal() {
+            document.getElementById('edit-modal').style.display = 'block';
+            updateModalUI();
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function updateModalUI() {
+            const activeList = document.getElementById('active-questions-list');
+            const usedList = document.getElementById('used-questions-list');
+            const removedList = document.getElementById('removed-questions-list');
+            
+            // Update counts
+            document.getElementById('active-count').innerText = activeQuestions.length;
+            document.getElementById('used-count').innerText = usedQuestions.length;
+            document.getElementById('removed-count').innerText = removedQuestions.length;
+
+            // Clear lists
+            activeList.innerHTML = '';
+            usedList.innerHTML = '';
+            removedList.innerHTML = '';
+            
+            // Update Scheduling UI
+            document.getElementById('schedule-toggle').checked = scheduleSettings.enabled;
+            document.getElementById('switch-time').value = scheduleSettings.switchTime;
+            
+            const lastSwitchDateEl = document.getElementById('last-switch-date');
+            if (scheduleSettings.lastSwitchDate) {
+                lastSwitchDateEl.innerText = new Date(scheduleSettings.lastSwitchDate).toLocaleDateString();
+            } else {
+                lastSwitchDateEl.innerText = "Never";
+            }
+
+
+            // Render Active and Used Questions
+            [...activeQuestions, ...usedQuestions].forEach((q, index) => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                item.innerHTML = `
+                    <span class="question-text">${q}</span>
+                    <button class="action-btn remove-btn" onclick="removeQuestion('${q.replace(/'/g, "\\'")}', true)">Remove</button>
+                `;
+                if (activeQuestions.includes(q)) {
+                    activeList.appendChild(item);
+                } else {
+                    usedList.appendChild(item);
+                }
+            });
+            
+            // Render Removed Questions
+            removedQuestions.forEach(q => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                item.innerHTML = `
+                    <span class="question-text removed-text">${q}</span>
+                    <button class="action-btn restore-btn" onclick="restoreQuestion('${q.replace(/'/g, "\\'")}')">Restore</button>
+                `;
+                removedList.appendChild(item);
+            });
+        }
+
+        function addQuestion() {
+            const input = document.getElementById('new-question-input');
+            const newQ = input.value.trim();
+            if (newQ && ![...activeQuestions, ...usedQuestions, ...removedQuestions].includes(newQ)) {
+                activeQuestions.push(newQ);
+                shuffleArray(activeQuestions);
+                saveQuestions();
+                input.value = '';
+                updateModalUI();
+            } else if (newQ) {
+                 // Using an alert here as it is only in the modal editor context
+                 alert("This question already exists in one of the lists."); 
+            }
+        }
+
+        function removeQuestion(q, isActive) {
+            if (isActive) {
+                // Check in both active and used arrays
+                const activeIndex = activeQuestions.indexOf(q);
+                if (activeIndex !== -1) {
+                    activeQuestions.splice(activeIndex, 1);
+                } else {
+                    const usedIndex = usedQuestions.indexOf(q);
+                    if (usedIndex !== -1) {
+                        usedQuestions.splice(usedIndex, 1);
+                    }
+                }
+            }
+            removedQuestions.push(q);
+            saveQuestions();
+            updateModalUI();
+        }
+
+        function restoreQuestion(q) {
+            const index = removedQuestions.indexOf(q);
+            if (index > -1) {
+                removedQuestions.splice(index, 1);
+                activeQuestions.push(q);
+                shuffleArray(activeQuestions);
+                saveQuestions();
+                updateModalUI();
+            }
+        }
+
+        function resetCycle() {
+            if (usedQuestions.length === 0) return;
+            activeQuestions = [...usedQuestions, ...activeQuestions];
+            usedQuestions = [];
+            shuffleArray(activeQuestions);
+            saveQuestions();
+            updateModalUI();
+            document.getElementById('question').innerText = "Cycle Reset: All questions are back in the Active pool!";
+            enforceBlackout();
+            closeModal();
+        }
+
+        function resetAllToDefault() {
+            // Using confirm here as it is only in the modal editor context
+            if (!confirm('Are you sure you want to reset ALL lists to the original 15 default questions? This cannot be undone.')) return;
+            
+            activeQuestions = [...defaultQuestions];
+            removedQuestions = [];
+            usedQuestions = [];
+            shuffleArray(activeQuestions);
+            
+            saveQuestions();
+            updateModalUI();
+            document.getElementById('question').innerText = "FULL Reset Complete. Ready.";
+            enforceBlackout();
+            closeModal();
+        }
+        
+        // --- Initialization ---
+        window.onload = () => {
+            loadQuestions();
+            enforceBlackout();
+            
+            // Show first question ready state (which is 'Ready?' by default)
+            document.getElementById('question').innerText = "Ready?";
+            
+            // 1. Initial check on load
+            checkDailySwitch();
+
+            // 2. Set up periodic check (every minute)
+            setInterval(checkDailySwitch, 60000); 
+        };
+        
+    </script>
+</body>
+</html>
