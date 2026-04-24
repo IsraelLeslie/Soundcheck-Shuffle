@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundCheck Shuffle</title>
+    
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest"> <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"> <meta name="msapplication-TileColor" content="#da532c"> <meta name="theme-color" content="#ffffff"> <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        :root {
+            /* Active Theme Variables (Dark Mode Only) */
+            --text-color: #ffffff;
+            --bg-color: #000000;
+            --subtle-color: #333333;
+            --subtle-text: #666666;
+            --reveal-color: #6C5CE7; /* Purple for active reveal */
+            --modal-bg: rgba(0, 0, 0, 0.95);
+
+            /* Action Colors (Constant) */
+            --accent-color: #4CAF50; /* Green for adds/restores */
+            --danger-color: #f44336; /* Red for removals/resets */
+            --star-color: #FFD700; /* Gold for ratings */
+            --info-color: #2196F3; /* Blue for import/export */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* --- Rainbow Animation Keyframes --- */
+        @keyframes rainbow-cycle {
+            0% { color: #ff0000; }
+            16% { color: #ff7f00; }
+            33% { color: #ffff00; }
+            50% { color: #00ff00; }
+            66% { color: #0000ff; }
+            83% { color: #4b0082; }
+            100% { color: #ff0000; }
+        }
+        
+        #question {
+            font-size: 5vw; 
+            font-weight: 700;
+            line-height: 1.3;
+            max-width: 90%; 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            white-space: pre-wrap;
+            transition: opacity 0.3s ease-in-out; 
+            opacity: 1;
+            /* Ensure text is above confetti canvas */
+            z-index: 2;
+        }
+
+        #question.blacked-out {
+            opacity: 0; 
+        }
+
+        #question.rainbow-text {
+            animation: rainbow-cycle 6s linear infinite;
+            color: initial; 
+        }
+
+        /* Base Button Style */
+        .utility-button {
+            position: fixed; 
+            bottom: 20px;
+            width: 50px;
+            height: 50px; 
+            padding: 0;
+            background: transparent;
+            color: var(--subtle-text);
+            border: 2px solid var(--subtle-color);
+            font-size: 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            outline: none;
+            user-select: none;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .utility-button:hover, .utility-button:active {
+            color: var(--text-color);
+            border-color: var(--text-color);
+            transform: scale(1.05); 
+        }
+        
+        #next-button {
+            left: 20px;
+        }
+        
+        #edit-button {
+            right: 20px;
+            font-size: 1.2rem;
+        }
+
+        #blackout-button {
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.2rem;
+            line-height: 1;
+            color: var(--subtle-text); 
+            border-color: var(--subtle-color);
+        }
+        
+        #blackout-button.active-reveal {
+            background-color: var(--reveal-color);
+            color: var(--text-color);
+            border-color: var(--reveal-color);
+        }
+        
+        /* Footer Style Fix */
+        #author-footer {
+            position: fixed;
+            bottom: 0px; 
+            left: 0; /* Ensures full left alignment */
+            right: 0; /* Ensures full right alignment */
+            width: 100%;
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--subtle-text); 
+            padding: 5px 0;
+            opacity: 0.7; 
+            z-index: 5; 
+        }
+
+        /* Modal Styles */
+        #edit-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--modal-bg);
+            z-index: 1000;
+            display: none;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            max-width: 700px;
+            margin: 40px auto;
+            text-align: left;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--subtle-color);
+            padding-bottom: 10px;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 2rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        /* Question Manager UI */
+        .section-title {
+            font-size: 1.2rem;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--subtle-text);
+            padding-left: 10px;
+            color: var(--subtle-text);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        #new-question-input {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        .action-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        
+        .add-btn { background-color: var(--accent-color); color: var(--bg-color); }
+        .reset-btn { background-color: var(--danger-color); color: var(--text-color); }
+        .remove-btn { background-color: var(--danger-color); color: var(--text-color); padding: 5px 10px; font-size: 0.85rem; }
+        .restore-btn { background-color: var(--accent-color); color: var(--bg-color); padding: 5px 10px; font-size: 0.85rem; }
+        /* New Styles for CSV buttons */
+        .csv-btn { background-color: var(--info-color); color: var(--text-color); }
+
+
+        .question-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .question-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px dashed var(--subtle-color);
+            color: var(--text-color);
+        }
+
+        .question-item-content {
+            flex-grow: 1;
+            padding-right: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .question-text-input {
+            /* New Style for Editable Text Input */
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 5px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            font-size: 1rem;
+            box-sizing: border-box;
+            border-radius: 4px;
+        }
+
+        .removed-text {
+            color: var(--subtle-text);
+        }
+        
+        /* Metadata Editor Styles */
+        .question-metadata-editor {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        
+        .rating-select, .tag-editor {
+            font-size: 0.85rem;
+            padding: 4px;
+            border-radius: 3px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        
+        .tag-editor {
+            width: 100px;
+        }
+
+        .rating-stars {
+            color: var(--star-color);
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+        
+        .tag-display {
+            padding: 3px 6px;
+            background-color: var(--subtle-color);
+            border-radius: 3px;
+            font-size: 0.8rem;
+            color: var(--text-color);
+        }
+
+
+        /* Filter Controls */
+        #filter-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid var(--subtle-color);
+            border-radius: 4px;
+        }
+        
+        #filter-controls select, #filter-tag-input, #switch-time {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+        
+        /* --- Custom Switch Toggle CSS for Scheduling --- */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 45px;
+            height: 25px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--subtle-color);
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 17px;
+            width: 17px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .slider.round {
+            border-radius: 34px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+        /* --- End Switch CSS --- */
+    </style>
+</head>
+<body>
+
+    <div id="main-app-view">
+        <div id="question">Ready?</div>
+        
+        <button id="next-button" class="utility-button" onclick="nextQuestion()" title="Next Question">&#10140;</button>
+        <button id="blackout-button" class="utility-button" onclick="handleBlackoutClick(event)" title="Toggle Blackout / Shift+Click for Rainbow">&#9679;</button>
+        <button id="edit-button" class="utility-button" onclick="openModal()" title="Edit Questions">&#9998;</button>
+        
+        <div id="author-footer">Soundcheck Shuffle by Israel Leslie</div>
+    </div>
+
+    <div id="edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Question Manager</h2>
+                <button class="close-button" onclick="closeModal()">&times;</button>
+            </div>
+            
+            <div class="section-title">Daily Automation</div>
+            <div style="margin-bottom: 20px; padding: 10px; border: 1px solid var(--subtle-color); border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <label for="schedule-toggle" style="font-weight: 600;">Enable Daily Automatic Switch</label>
+                    <label class="switch">
+                        <input type="checkbox" id="schedule-toggle" onchange="saveScheduleSettings()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div id="schedule-controls">
+                    <label for="switch-time">Switch Time (Local Time):</label>
+                    <input type="time" id="switch-time" onchange="saveScheduleSettings()" class="modal-select" value="08:00">
+                    <p style="font-size: 0.8rem; color: var(--subtle-text); margin-top: 10px;">Last automated switch: <span id="last-switch-date">Never</span></p>
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--subtle-color); margin: 30px 0;">
+
+            <div class="section-title">Add New Question</div>
+            <div class="input-group">
+                <input type="text" id="new-question-input" placeholder="Enter a new mic check question">
+                <button class="action-btn add-btn" onclick="addQuestion()">Add</button>
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid var(--subtle-color); margin: 30px 0;">
+
+            <div class="section-title">Filter Questions (Applies to Main Page)</div>
+            <div id="filter-controls">
+                <label for="filter-rating-select">Min Rating:</label>
+                <select id="filter-rating-select" onchange="updateFilter()">
+                    <option value="0" selected>All Ratings</option>
+                    <option value="5">5 ★★★★★</option>
+                    <option value="4">4 ★★★★</option>
+                    <option value="3">3 ★★★</option>
+                    <option value="2">2 ★★</option>
+                    <option value="1">1 ★</option>
+                </select>
+                
+                <label for="filter-tag-input">Tag:</label>
+                <input type="text" id="filter-tag-input" placeholder="Enter Tag" oninput="updateFilter()">
+            </div>
+            <p style="color: var(--subtle-text); font-size: 0.9rem;">
+                Currently **<span id="filtered-count">0</span>** out of <span id="active-count">0</span> active questions match this filter and are eligible to be displayed.
+            </p>
+            
+            <div class="section-title">Active Questions List (Edit Text/Metadata)</div>
+            <ul id="active-questions-list" class="question-list">
+                </ul>
+
+            <div class="section-title">Data Management (Active Questions)</div>
+            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <button class="action-btn csv-btn" onclick="document.getElementById('csv-file-input').click()">Import CSV</button>
+                <input type="file" id="csv-file-input" accept=".csv" onchange="importFromCsv(event)" style="display: none;">
+
+                <button class="action-btn csv-btn" onclick="exportToCsv()">Export CSV</button>
+            </div>
+            <div class="section-title">Used Questions (<span id="used-count">0</span>)</div>
+            <p style="color: var(--subtle-text); font-size: 0.9rem;">These have been asked in the current cycle. Metadata is view-only here.</p>
+            <ul id="used-questions-list" class="question-list">
+                </ul>
+
+            <div class="section-title">Removed Questions (<span id="removed-count">0</span>)</div>
+            <ul id="removed-questions-list" class="question-list">
+                </ul>
+
+            <div style="text-align: right; margin-top: 30px;">
+                <button class="action-btn reset-btn" onclick="resetCycle()">Force Reset Cycle</button>
+                <button class="action-btn reset-btn" onclick="resetAllToDefault()" style="margin-left: 10px;">Reset All to Default List</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY_ACTIVE = 'micCheckActiveObjects'; 
+        const STORAGE_KEY_REMOVED = 'micCheckRemovedObjects';
+        const STORAGE_KEY_USED = 'micCheckUsedObjects';
+        const STORAGE_KEY_SCHEDULE_SETTINGS = 'micCheckSchedule';
+        const STORAGE_KEY_FILTER_SETTINGS = 'micCheckFilter';
+
+        let activeQuestions = [];
+        let removedQuestions = [];
+        let usedQuestions = [];
+        let lastQuestionText = "";
+        let isBlackedOut = true;
+        let isRainbowActive = false;
+        
+        let scheduleSettings = {
+            enabled: false,
+            switchTime: '08:00',
+            lastSwitchDate: null
+        };
+        
+        let currentFilter = {
+            rating: 0, 
+            tag: ""    
+        };
+
+        const defaultQuestions = [
+            "Everyone hears a sound effect when you enter the room, what is it?",
+            "What fictional character's voice would you use for an alarm clock?",
+            "You're suddenly in a commercial, what are you advertising?",
+            "Which cast member would you trust to pick your outfit for opening night?",
+            "You get a magical button that performs a mundane task for you, what does it do?",
+            "What would you do to get banned from the local library?",
+            "If you had to deliver a TED Talk right now with zero preparation. What is the topic?",
+            "If animals could talk, which species would be the rudest?",
+            "If you could make one mundane thing illegal, what would it be?",
+            "If you had to wear one color for the rest of your life, what would it be?",
+            "Who would play you in a biopic of your life?",
+            "You are a ghost haunting this theatre. How do you annoy the actors?",
+            "You are an action figure. What is the one accessory you come with?",
+            "What's a future invention from movies that you're annoyed we don't have yet?",
+            "Which font would you be?"
+        ].map(text => ({ text: text, rating: 0, tag: "" }));
+        
+        // Helper functions
+        function ensureQuestionObject(q) {
+            if (typeof q === 'string') {
+                return { text: q, rating: 0, tag: "" };
+            }
+            return { 
+                text: q.text || "", 
+                rating: parseInt(q.rating) || 0, 
+                tag: (q.tag || "").trim() 
+            };
+        }
+        
+        function getStarRatingHtml(rating) {
+            const num = parseInt(rating);
+            if (isNaN(num) || num < 1) return '';
+            return '★'.repeat(num) + '☆'.repeat(5 - num);
+        }
+        
+        // The qIdentifier is the question's text at the time of rendering
+        function getRatingSelector(qIdentifier, currentRating) {
+            let options = '';
+            // Escape single quotes for use in JavaScript string parameters within HTML attributes
+            const escapedIdentifier = qIdentifier.replace(/'/g, "\\'"); 
+            
+            for (let i = 5; i >= 0; i--) {
+                const isSelected = i === currentRating ? 'selected' : '';
+                const display = i === 0 ? '0 ★' : `${i} ${getStarRatingHtml(i)}`;
+                options += `<option value="${i}" ${isSelected}>${display}</option>`;
+            }
+            return `
+                <select class="rating-select" onchange="updateQuestionMetadata('${escapedIdentifier}', this.value, null, null)">
+                    ${options}
+                </select>
+            `;
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        /**
+         * Checks if a question text already exists in any of the lists.
+         * @param {string} text - The question text to check.
+         * @returns {boolean} True if the question exists, false otherwise.
+         */
+        function checkDuplicate(text) {
+            const trimmedText = text.trim();
+            const allQuestions = [...activeQuestions, ...usedQuestions, ...removedQuestions];
+            return allQuestions.some(q => q.text.trim() === trimmedText);
+        }
+        
+        // --- Persistence and State Management ---
+
+        function loadQuestions() {
+            const storedActive = localStorage.getItem(STORAGE_KEY_ACTIVE);
+            const storedRemoved = localStorage.getItem(STORAGE_KEY_REMOVED);
+            const storedUsed = localStorage.getItem(STORAGE_KEY_USED);
+            const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE_SETTINGS);
+            const storedFilter = localStorage.getItem(STORAGE_KEY_FILTER_SETTINGS);
+
+            if (storedFilter) {
+                currentFilter = JSON.parse(storedFilter);
+            }
+
+            removedQuestions = storedRemoved ? JSON.parse(storedRemoved).map(ensureQuestionObject) : [];
+            usedQuestions = storedUsed ? JSON.parse(storedUsed).map(ensureQuestionObject) : [];
+
+            if (storedActive) {
+                activeQuestions = JSON.parse(storedActive).map(ensureQuestionObject);
+            } else {
+                activeQuestions = [...defaultQuestions];
+                shuffleArray(activeQuestions);
+            }
+            
+            if (storedSchedule) {
+                scheduleSettings = JSON.parse(storedSchedule);
+            }
+            
+            // Automatic Cycle Reset Check
+            if (activeQuestions.length === 0 && usedQuestions.length > 0) {
+                activeQuestions = usedQuestions;
+                usedQuestions = [];
+                shuffleArray(activeQuestions);
+                console.log("Automatic cycle reset performed.");
+            }
+            
+            saveQuestions(false); // Do not update UI yet
+        }
+
+        function saveQuestions(updateUI = true) {
+            localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(activeQuestions));
+            localStorage.setItem(STORAGE_KEY_REMOVED, JSON.stringify(removedQuestions));
+            localStorage.setItem(STORAGE_KEY_USED, JSON.stringify(usedQuestions));
+            localStorage.setItem(STORAGE_KEY_SCHEDULE_SETTINGS, JSON.stringify(scheduleSettings));
+            localStorage.setItem(STORAGE_KEY_FILTER_SETTINGS, JSON.stringify(currentFilter));
+
+            if (updateUI) {
+                updateModalUI();
+            }
+        }
+        
+        function saveScheduleSettings() {
+            scheduleSettings.enabled = document.getElementById('schedule-toggle').checked;
+            scheduleSettings.switchTime = document.getElementById('switch-time').value || '08:00';
+            
+            if (scheduleSettings.enabled) {
+                checkDailySwitch();
+            }
+            saveQuestions();
+        }
+        
+        // --- Filtering and Metadata Logic ---
+        
+        function getFilteredActiveQuestions() {
+            const minRating = currentFilter.rating;
+            const tag = currentFilter.tag.toLowerCase();
+            
+            return activeQuestions.filter(q => {
+                const matchesRating = q.rating >= minRating;
+                const matchesTag = tag === "" || q.tag.toLowerCase().includes(tag);
+                return matchesRating && matchesTag;
+            });
+        }
+        
+        function updateFilter() {
+            const ratingSelect = document.getElementById('filter-rating-select');
+            const tagInput = document.getElementById('filter-tag-input');
+            
+            currentFilter.rating = parseInt(ratingSelect.value);
+            currentFilter.tag = tagInput.value.trim();
+            
+            saveQuestions();
+        }
+        
+        // Updated to handle text editing
+        function updateQuestionMetadata(oldText, newRating, newTag, newText) {
+            const targetArray = activeQuestions;
+            const index = targetArray.findIndex(q => q.text === oldText);
+
+            if (index > -1) {
+                // If a new text value is provided and it's not empty, update the text
+                if (newText !== null && newText.trim() !== "") {
+                    // Check for duplicates before changing the text
+                    const allOthers = [...activeQuestions.slice(0, index), ...activeQuestions.slice(index + 1), ...usedQuestions, ...removedQuestions];
+                    if (allOthers.some(q => q.text.trim() === newText.trim())) {
+                        alert("A question with this text already exists in one of the lists.");
+                        // Re-render to revert the input field to the old text
+                        updateModalUI(); 
+                        return;
+                    }
+                    targetArray[index].text = newText.trim();
+                } else if (newText !== null && newText.trim() === "") {
+                    // Prevent saving an empty question text
+                    alert("Question text cannot be empty.");
+                    // Re-render to revert the input field to the old text
+                    updateModalUI(); 
+                    return;
+                }
+                
+                if (newRating !== null) {
+                    targetArray[index].rating = parseInt(newRating);
+                }
+                if (newTag !== null) {
+                    targetArray[index].tag = newTag.trim();
+                }
+                
+                // Save and update UI. If text changed, the identifier for the next render will be the new text.
+                saveQuestions();
+            }
+        }
+
+        // --- Blackout/Rainbow/Confetti Logic ---
+        
+        function handleBlackoutClick(event) {
+            if (event.shiftKey) {
+                toggleRainbow();
+            } else {
+                toggleBlackout();
+            }
+            event.preventDefault(); 
+        }
+
+        function toggleBlackout() {
+            const questionEl = document.getElementById('question');
+            const button = document.getElementById('blackout-button');
+            isBlackedOut = !isBlackedOut;
+            
+            if (isBlackedOut) {
+                questionEl.classList.add('blacked-out');
+                button.classList.remove('active-reveal');
+            } else {
+                questionEl.classList.remove('blacked-out');
+                button.classList.add('active-reveal');
+            }
+        }
+        
+        function enforceBlackout() {
+            isBlackedOut = true;
+            document.getElementById('question').classList.add('blacked-out');
+            document.getElementById('blackout-button').classList.remove('active-reveal');
+        }
+        
+        function toggleRainbow() {
+            const questionEl = document.getElementById('question');
+            isRainbowActive = !isRainbowActive;
+            
+            if (isRainbowActive) {
+                console.log("Rainbow Activated");
+                questionEl.classList.add('rainbow-text');
+                questionEl.classList.remove('blacked-out');
+                document.getElementById('blackout-button').classList.add('active-reveal');
+                isBlackedOut = false;
+                
+                // Start confetti rain
+                startConfettiRain();
+                
+            } else {
+                console.log("Rainbow Deactivated");
+                questionEl.classList.remove('rainbow-text');
+                // Stop confetti
+                if (window.confetti) window.confetti.reset();
+            }
+        }
+
+        // --- Confetti Animation ---
+        function startConfettiRain() {
+            // Check if library is loaded
+            if (typeof window.confetti !== 'function') {
+                console.error("Confetti library not loaded.");
+                return;
+            }
+
+            var duration = 15 * 1000;
+            var animationEnd = Date.now() + duration;
+            var skew = 1;
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            (function frame() {
+              if (!isRainbowActive) return; // Stop if toggled off
+
+              var timeLeft = animationEnd - Date.now();
+
+              // Reset timer to keep loop infinite while active
+              if (timeLeft <= 0) {
+                  animationEnd = Date.now() + duration; 
+              }
+
+              // Fire confetti with High Z-Index to ensure it's on top
+              confetti({
+                particleCount: 1,
+                startVelocity: 0,
+                ticks: 200, 
+                origin: {
+                  x: Math.random(),
+                  // start slightly above viewport top
+                  y: 0 
+                },
+                // Set to gold/yellow shades
+                colors: ['#FFD700', '#FFC700', '#FFEE58'], 
+                shapes: ['square', 'circle'],
+                gravity: randomInRange(0.4, 0.8),
+                scalar: randomInRange(0.8, 1.2),
+                drift: randomInRange(-0.4, 0.4),
+                zIndex: 9999, // <--- CRITICAL FIX: Ensures it displays above background
+                disableForReducedMotion: true // Good practice
+              });
+
+              requestAnimationFrame(frame);
+            }());
+        }
+        
+        // --- Main App Logic (Uses Filtered List) ---
+
+        function nextQuestion() {
+            const display = document.getElementById('question');
+            
+            if (isRainbowActive) {
+                isRainbowActive = false;
+                display.classList.remove('rainbow-text');
+                if (window.confetti) window.confetti.reset(); // Cleanup confetti
+            }
+            
+            const filteredQuestions = getFilteredActiveQuestions();
+
+            if (filteredQuestions.length === 0) {
+                if (activeQuestions.length === 0 && usedQuestions.length > 0) {
+                    activeQuestions = usedQuestions;
+                    usedQuestions = [];
+                    shuffleArray(activeQuestions);
+                    saveQuestions();
+                    
+                    display.innerText = "Cycle Reset: All questions are back in the pool!";
+                    document.getElementById('question').classList.remove('blacked-out');
+                    document.getElementById('blackout-button').classList.add('active-reveal');
+
+                    setTimeout(() => nextQuestion(), 2000); 
+                    return;
+                } else {
+                    const filterMessage = (currentFilter.rating > 0 || currentFilter.tag !== "") 
+                        ? `No active questions match the current filter (Min Rating: ${currentFilter.rating}, Tag: "${currentFilter.tag}").` 
+                        : "All questions used! Add more or reset the cycle in the editor (bottom right).";
+                    
+                    display.innerText = filterMessage;
+                    enforceBlackout();
+                    return;
+                }
+            }
+
+            const randomIndex = Math.floor(Math.random() * filteredQuestions.length);
+            const questionToMove = filteredQuestions[randomIndex];
+            
+            const originalIndex = activeQuestions.findIndex(q => q.text === questionToMove.text);
+            
+            if (originalIndex > -1) {
+                activeQuestions.splice(originalIndex, 1);
+            } else {
+                console.error("Filtered question not found in activeQuestions list!");
+                return;
+            }
+            
+            lastQuestionText = questionToMove.text;
+            usedQuestions.push(questionToMove);
+            saveQuestions();
+
+            display.innerText = questionToMove.text;
+            enforceBlackout();
+        }
+        
+        // --- CSV Import/Export Logic ---
+
+        function exportToCsv() {
+            const header = ["text", "rating", "tag"];
+            
+            // Format data: escape double quotes and wrap in quotes for text/tag fields
+            const csvContent = activeQuestions.map(q => {
+                const text = `"${q.text.replace(/"/g, '""')}"`;
+                const tag = `"${q.tag.replace(/"/g, '""')}"`;
+                return [text, q.rating, tag].join(',');
+            }).join('\n');
+            
+            const finalCsv = header.join(',') + '\n' + csvContent;
+
+            const blob = new Blob([finalCsv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", "soundcheck_shuffle_questions.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        /**
+         * Parses a CSV string into an array of question objects.
+         * Handles escaped quotes within fields.
+         * Assumes header row: text,rating,tag
+         */
+        function csvToArray(csvString) {
+            const rows = csvString.trim().split('\n');
+            if (rows.length < 2) return []; // Only header or empty
+            
+            // Skip the header row
+            const dataRows = rows.slice(1);
+            const questions = [];
+
+            // Simple parser that correctly handles quoted fields with escaped quotes
+            dataRows.forEach(row => {
+                // Regex to split by comma, ignoring commas inside double quotes.
+                // The fields are expected to be: "text","rating","tag" or text,rating,tag
+                const matches = row.match(/(".*?"|[^",\n]+)(,?)(".*?"|[^",\n]+)?(,?)(".*?"|[^",\n]+)?/);
+                
+                if (matches && matches.length >= 6) {
+                    // Raw fields include surrounding quotes if they exist
+                    let [ , rawText, , rawRating, , rawTag] = matches;
+
+                    // Clean up: Remove surrounding quotes and replace escaped quotes
+                    const text = rawText ? rawText.replace(/^"|"$/g, '').replace(/""/g, '"').trim() : '';
+                    const rating = rawRating ? parseInt(rawRating.replace(/^"|"$/g, '').replace(/""/g, '"').trim()) : 0;
+                    const tag = rawTag ? rawTag.replace(/^"|"$/g, '').replace(/""/g, '"').trim() : '';
+
+                    // Validate minimum fields
+                    if (text) {
+                        questions.push({
+                            text: text,
+                            rating: isNaN(rating) ? 0 : Math.max(0, Math.min(5, rating)), // Clamp rating 0-5
+                            tag: tag
+                        });
+                    }
+                }
+            });
+
+            return questions;
+        }
+
+        function importFromCsv(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csvString = e.target.result;
+                    const importedQuestions = csvToArray(csvString);
+                    let addedCount = 0;
+
+                    if (importedQuestions.length === 0) {
+                        alert("The CSV file is empty or formatted incorrectly (expected header: text,rating,tag).");
+                        return;
+                    }
+                    
+                    importedQuestions.forEach(q => {
+                        // Check for duplicates before adding
+                        if (!checkDuplicate(q.text)) {
+                            activeQuestions.push(q);
+                            addedCount++;
+                        }
+                    });
+
+                    shuffleArray(activeQuestions);
+                    saveQuestions(); // Save and update UI
+                    
+                    const skippedCount = importedQuestions.length - addedCount;
+                    alert(`Import successful: ${addedCount} new question(s) added. ${skippedCount} skipped due to duplicates or empty text.`);
+
+                } catch (error) {
+                    console.error("Error processing CSV:", error);
+                    alert("An error occurred while processing the CSV file. Please check the file format (expected header: text,rating,tag).");
+                } finally {
+                    // Reset file input so the same file can be selected again
+                    event.target.value = null; 
+                }
+            };
+            
+            reader.onerror = function() {
+                alert("Failed to read file.");
+            };
+
+            reader.readAsText(file);
+        }
+
+        // --- Scheduling Logic ---
+        
+        function checkDailySwitch() {
+            if (!scheduleSettings.enabled) {
+                return;
+            }
+
+            const now = new Date();
+            const todayDateStr = now.toISOString().split('T')[0];
+            
+            if (scheduleSettings.lastSwitchDate === todayDateStr) {
+                return;
+            }
+
+            const [scheduledHour, scheduledMinute] = scheduleSettings.switchTime.split(':').map(Number);
+            
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            const scheduledMinutes = scheduledHour * 60 + scheduledMinute;
+
+            if (nowMinutes >= scheduledMinutes) {
+                console.log(`[Scheduler] Automatic switch triggered at ${now.toLocaleTimeString()}.`);
+                
+                scheduleSettings.lastSwitchDate = todayDateStr;
+                saveQuestions();
+
+                nextQuestion(); 
+            }
+        }
+
+        // --- Modal & Editor Logic ---
+
+        function openModal() {
+            document.getElementById('edit-modal').style.display = 'block';
+            
+            // Set filter UI based on current state when modal opens
+            document.getElementById('filter-rating-select').value = currentFilter.rating;
+            document.getElementById('filter-tag-input').value = currentFilter.tag;
+            
+            updateModalUI();
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function updateModalUI() {
+            const activeList = document.getElementById('active-questions-list');
+            const usedList = document.getElementById('used-questions-list');
+            const removedList = document.getElementById('removed-questions-list');
+            
+            const filteredQuestions = getFilteredActiveQuestions();
+            
+            // Update counts
+            document.getElementById('active-count').innerText = activeQuestions.length;
+            document.getElementById('used-count').innerText = usedQuestions.length;
+            document.getElementById('removed-count').innerText = removedQuestions.length;
+            document.getElementById('filtered-count').innerText = filteredQuestions.length;
+
+            activeList.innerHTML = '';
+            usedList.innerHTML = '';
+            removedList.innerHTML = '';
+            
+            // Update Scheduling UI
+            document.getElementById('schedule-toggle').checked = scheduleSettings.enabled;
+            document.getElementById('switch-time').value = scheduleSettings.switchTime;
+            
+            const lastSwitchDateEl = document.getElementById('last-switch-date');
+            if (scheduleSettings.lastSwitchDate) {
+                lastSwitchDateEl.innerText = new Date(scheduleSettings.lastSwitchDate).toLocaleDateString();
+            } else {
+                lastSwitchDateEl.innerText = "Never";
+            }
+
+            // Render Active Questions (Filtered + Editable Metadata + Editable Text)
+            activeQuestions.forEach(q => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                
+                // Escape quotes for use in JS strings within HTML attributes
+                const escapedQText = q.text.replace(/'/g, "\\'"); 
+                
+                // Determine if this question is currently visible based on the filter
+                const isFilteredOut = !filteredQuestions.some(fq => fq.text === q.text);
+                item.style.opacity = isFilteredOut ? '0.4' : '1'; 
+                item.title = isFilteredOut ? `Hidden by filter (Min Rating: ${currentFilter.rating}, Tag: "${currentFilter.tag}")` : '';
+
+
+                item.innerHTML = `
+                    <div class="question-item-content">
+                        <input type="text" 
+                               class="question-text-input" 
+                               value="${q.text}" 
+                               onblur="updateQuestionMetadata('${escapedQText}', null, null, this.value)"
+                               title="Click to edit and press enter/tab to save."
+                        >
+                        <div class="question-metadata-editor">
+                            ${getRatingSelector(q.text, q.rating)}
+                            <input type="text" class="tag-editor" placeholder="Tag" value="${q.tag}" oninput="updateQuestionMetadata('${escapedQText}', null, this.value, null)">
+                        </div>
+                    </div>
+                    <button class="action-btn remove-btn" onclick="removeQuestion('${escapedQText}')">Remove</button>
+                `;
+                activeList.appendChild(item);
+            });
+            
+            // Render Used Questions (View Only Metadata)
+            usedQuestions.forEach(q => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                item.innerHTML = `
+                    <div class="question-item-content">
+                        <span class="question-text">${q.text}</span>
+                        <div class="question-metadata-editor">
+                            <span class="rating-stars" title="${q.rating} Stars">${getStarRatingHtml(q.rating)}</span>
+                            ${q.tag ? `<span class="tag-display">${q.tag}</span>` : ''}
+                        </div>
+                    </div>
+                    <button class="action-btn remove-btn" onclick="removeQuestion('${q.text.replace(/'/g, "\\'")}')">Remove</button>
+                `;
+                usedList.appendChild(item);
+            });
+            
+            // Render Removed Questions
+            removedQuestions.forEach(q => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                item.innerHTML = `
+                    <span class="question-text removed-text">${q.text}</span>
+                    <button class="action-btn restore-btn" onclick="restoreQuestion('${q.text.replace(/'/g, "\\'")}')">Restore</button>
+                `;
+                removedList.appendChild(item);
+            });
+        }
+
+        function addQuestion() {
+            const input = document.getElementById('new-question-input');
+            const newQText = input.value.trim();
+            
+            if (!newQText) return;
+
+            if (checkDuplicate(newQText)) {
+                 alert("This question already exists in one of the lists."); 
+                 return;
+            }
+            
+            const newQuestion = {
+                text: newQText,
+                rating: 0, 
+                tag: ""
+            };
+
+            activeQuestions.push(newQuestion);
+            shuffleArray(activeQuestions);
+            saveQuestions();
+            
+            input.value = '';
+        }
+
+        function removeQuestion(qText) {
+            
+            let removedQ = null;
+
+            const activeIndex = activeQuestions.findIndex(q => q.text === qText);
+            if (activeIndex !== -1) {
+                removedQ = activeQuestions.splice(activeIndex, 1)[0];
+            } else {
+                const usedIndex = usedQuestions.findIndex(q => q.text === qText);
+                if (usedIndex !== -1) {
+                    removedQ = usedQuestions.splice(usedIndex, 1)[0];
+                }
+            }
+            
+            if(removedQ) {
+                removedQuestions.push(removedQ);
+            }
+
+            saveQuestions();
+        }
+
+        function restoreQuestion(qText) {
+            const removedIndex = removedQuestions.findIndex(q => q.text === qText);
+            if (removedIndex > -1) {
+                const restoredQ = removedQuestions.splice(removedIndex, 1)[0];
+                activeQuestions.push(restoredQ);
+                shuffleArray(activeQuestions);
+                saveQuestions();
+            }
+        }
+
+        function resetCycle() {
+            if (!confirm('Are you sure you want to force a cycle reset?')) return;
+            
+            activeQuestions = [...usedQuestions, ...activeQuestions];
+            usedQuestions = [];
+            shuffleArray(activeQuestions);
+            saveQuestions();
+            
+            document.getElementById('question').innerText = "Cycle Reset: All questions are back in the Active pool!";
+            if (isRainbowActive) {
+                toggleRainbow(); // Cleanly stops rainbow and confetti
+            }
+            enforceBlackout();
+            closeModal();
+        }
+
+        function resetAllToDefault() {
+            if (!confirm('Are you sure you want to reset ALL lists to the original 15 default questions? This cannot be undone.')) return;
+            
+            activeQuestions = [...defaultQuestions];
+            removedQuestions = [];
+            usedQuestions = [];
+            shuffleArray(activeQuestions);
+            
+            currentFilter.rating = 0;
+            currentFilter.tag = "";
+            
+            saveQuestions();
+            document.getElementById('question').innerText = "FULL Reset Complete. Ready.";
+            if (isRainbowActive) {
+                toggleRainbow(); // Cleanly stops rainbow and confetti
+            }
+            enforceBlackout();
+            closeModal();
+        }
+        
+        // --- Initialization ---
+        window.onload = () => {
+            loadQuestions();
+            enforceBlackout();
+            
+            document.title = "SoundCheck Shuffle";
+            document.getElementById('question').innerText = "Ready?";
+            
+            // Initialize filter UI state (for when the modal is opened)
+            document.getElementById('filter-rating-select').value = currentFilter.rating;
+            document.getElementById('filter-tag-input').value = currentFilter.tag;
+            
+            // Set up recurring checks
+            checkDailySwitch();
+            setInterval(checkDailySwitch, 60000); 
+        };
+        
+    </script>
+</body>
+</html>
