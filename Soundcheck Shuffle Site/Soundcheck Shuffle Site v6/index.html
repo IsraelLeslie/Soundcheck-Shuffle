@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundCheck Shuffle</title>
+    
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest"> <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"> <meta name="msapplication-TileColor" content="#da532c"> <meta name="theme-color" content="#ffffff"> <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    
+    <link rel="shortcut icon" href="/favicon.ico">
+    
+    <style>
+        :root {
+            /* Active Theme Variables (Dark Mode Only) */
+            --text-color: #ffffff;
+            --bg-color: #000000;
+            --subtle-color: #333333;
+            --subtle-text: #666666;
+            --reveal-color: #6C5CE7; /* Purple for active reveal */
+
+            /* Action Colors (Constant) */
+            --accent-color: #4CAF50; /* Green for adds/restores */
+            --danger-color: #f44336; /* Red for removals/resets */
+            --info-color: #2196F3; /* Blue for set next */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* --- Rainbow Animation Keyframes --- */
+        @keyframes rainbow-cycle {
+            0% { color: #ff0000; }
+            16% { color: #ff7f00; }
+            33% { color: #ffff00; }
+            50% { color: #00ff00; }
+            66% { color: #0000ff; }
+            83% { color: #4b0082; }
+            100% { color: #ff0000; }
+        }
+        
+        #display-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #question {
+            font-size: 5vw; 
+            font-weight: 700;
+            line-height: 1.3;
+            margin: 0;
+            white-space: pre-wrap;
+            transition: opacity 0.3s ease-in-out; 
+            opacity: 1;
+        }
+
+        #question.blacked-out {
+            opacity: 0; 
+        }
+
+        #question.rainbow-text {
+            animation: rainbow-cycle 6s linear infinite;
+            color: initial; 
+        }
+
+        #question-author {
+            font-size: 1.5rem;
+            color: var(--subtle-text);
+            font-style: italic;
+            margin: 0;
+            transition: opacity 0.3s ease-in-out;
+            opacity: 1;
+        }
+
+        #question-author.blacked-out {
+            opacity: 0;
+        }
+
+        /* --- Moveable & Resizable Pop-ups (Shared Exact Styling) --- */
+        .floating-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 360px;
+            min-width: 280px;
+            min-height: 220px;
+            max-height: 80vh;
+            background-color: rgba(15, 15, 15, 0.95);
+            border: 1px solid var(--subtle-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            text-align: left;
+            z-index: 90;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+            resize: both;
+            overflow: auto;
+        }
+
+        .panel-drag-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--text-color);
+            background-color: rgba(40, 40, 40, 0.6);
+            padding: 10px 12px;
+            border-top-left-radius: 7px;
+            border-top-right-radius: 7px;
+            cursor: move;
+            user-select: none;
+            border-bottom: 1px solid var(--subtle-color);
+        }
+
+        .panel-drag-header span {
+            font-weight: 600;
+        }
+
+        .panel-body {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+        }
+
+        .close-button:hover {
+            color: var(--danger-color);
+        }
+
+        .add-person-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        #new-person-input {
+            flex-grow: 1;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.85rem;
+        }
+
+        .small-action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+
+        .small-action-btn:hover {
+            opacity: 0.9;
+        }
+
+        #answers-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+        }
+
+        .answer-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: rgba(30, 30, 30, 0.5);
+            padding: 6px 8px;
+            border-radius: 4px;
+        }
+
+        .answer-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-color);
+            text-align: left;
+        }
+
+        .answer-input {
+            flex-grow: 1;
+            padding: 5px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.85rem;
+        }
+
+        .delete-person-btn {
+            background: none;
+            border: none;
+            color: var(--subtle-text);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 4px;
+            line-height: 1;
+        }
+
+        .delete-person-btn:hover {
+            color: var(--danger-color);
+        }
+
+        /* --- Bottom Left Utility Bar Styling --- */
+        #utility-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .utility-button {
+            width: 50px;
+            height: 50px; 
+            padding: 0;
+            background: transparent;
+            color: var(--subtle-text);
+            border: 2px solid var(--subtle-color);
+            font-size: 1.3rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            outline: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .utility-button:hover, .utility-button:active {
+            color: var(--text-color);
+            border-color: var(--text-color);
+            transform: scale(1.05); 
+        }
+
+        .utility-button.active-reveal {
+            background-color: var(--reveal-color);
+            color: var(--text-color);
+            border-color: var(--reveal-color);
+        }
+        
+        /* Footer Style */
+        #author-footer {
+            position: fixed;
+            bottom: 0px; 
+            left: 0; 
+            right: 0; 
+            width: 100%;
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--subtle-text); 
+            padding: 5px 0;
+            opacity: 0.7; 
+            z-index: 5; 
+        }
+
+        /* Question Manager UI inside floating panel */
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--subtle-text);
+            padding-left: 8px;
+            color: var(--subtle-text);
+            text-align: left;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-direction: column;
+        }
+        
+        #new-question-input, #new-question-author-input {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            font-size: 0.85rem;
+            box-sizing: border-box;
+        }
+
+        /* Standardized Action Buttons */
+        .action-btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+        
+        .add-btn { background-color: var(--accent-color); color: var(--bg-color); width: 100%; padding: 8px; }
+        .reset-btn { background-color: var(--danger-color); color: var(--text-color); }
+        .remove-btn { background-color: var(--danger-color); color: var(--text-color); }
+        .restore-btn { background-color: var(--accent-color); color: var(--bg-color); }
+        .set-next-btn { background-color: var(--info-color); color: var(--text-color); }
+
+        .question-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .question-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px dashed var(--subtle-color);
+            color: var(--text-color);
+            gap: 12px;
+            background-color: rgba(30, 30, 30, 0.3);
+            border-radius: 4px;
+        }
+
+        .question-item-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+            min-width: 0; /* Ensures proper text truncation/wrapping in flexbox */
+        }
+
+        .item-action-group {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-shrink: 0; /* Prevents buttons from ever stacking vertically */
+            white-space: nowrap;
+        }
+
+        .question-text-input {
+            width: 100%;
+            padding: 4px 6px;
+            margin-bottom: 4px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            font-size: 0.85rem;
+            box-sizing: border-box;
+            border-radius: 4px;
+        }
+
+        .removed-text {
+            color: var(--subtle-text);
+            text-align: left;
+            font-size: 0.85rem;
+            word-break: break-word;
+        }
+        
+        /* Metadata Editor Styles */
+        .question-metadata-editor {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+        
+        .author-editor {
+            font-size: 0.75rem;
+            padding: 3px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            width: 120px;
+        }
+        
+        .author-display {
+            padding: 2px 6px;
+            background-color: var(--subtle-color);
+            border-radius: 3px;
+            font-size: 0.75rem;
+            color: var(--text-color);
+        }
+
+        .time-input {
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--subtle-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.85rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* --- Custom Switch Toggle CSS --- */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--subtle-color);
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 15px;
+            width: 15px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        .slider.round {
+            border-radius: 34px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-app-view">
+        <div id="display-container">
+            <div id="question">Ready?</div>
+            <div id="question-author" class="blacked-out"></div>
+        </div>
+        
+        <!-- Cast Answers Pop-up -->
+        <div id="floating-answers-panel" class="floating-panel" style="display:none;">
+            <div class="panel-drag-header" id="answers-header">
+                <span>Cast Answers</span>
+                <button class="close-button" onclick="toggleAnswersPanel()">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div class="add-person-group">
+                    <input type="text" id="new-person-input" placeholder="Add cast name..." onkeydown="if(event.key==='Enter') addCastMember()">
+                    <button class="small-action-btn" onclick="addCastMember()">Add</button>
+                </div>
+                <ul id="answers-list"></ul>
+            </div>
+        </div>
+
+        <!-- Daily Automation Pop-up -->
+        <div id="floating-schedule-panel" class="floating-panel" style="display:none; left: 360px; top: 20px;">
+            <div class="panel-drag-header" id="schedule-header">
+                <span>Daily Automation</span>
+                <button class="close-button" onclick="toggleSchedulePanel()">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <label for="schedule-toggle" style="font-weight: 600; font-size: 0.9rem;">Enable Auto-Switch</label>
+                    <label class="switch">
+                        <input type="checkbox" id="schedule-toggle" onchange="saveScheduleSettings()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--subtle-text); margin-bottom: 5px; text-align: left;">Switch Times (Up to 4 daily):</div>
+                <div id="schedule-times-container" style="display: flex; flex-direction: column; gap: 6px;"></div>
+                <p style="font-size: 0.75rem; color: var(--subtle-text); margin-top: 5px; text-align: left;">Last automated switch: <span id="last-switch-date">Never</span></p>
+            </div>
+        </div>
+
+        <!-- Question Manager Pop-up -->
+        <div id="floating-manager-panel" class="floating-panel" style="display:none; width: 480px; left: 100px; top: 50px;">
+            <div class="panel-drag-header" id="manager-header">
+                <span>Question Manager</span>
+                <button class="close-button" onclick="toggleManagerPanel()">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div class="section-title" style="margin-top:0;">Add New Question</div>
+                <div class="input-group">
+                    <input type="text" id="new-question-input" placeholder="Enter question text...">
+                    <input type="text" id="new-question-author-input" placeholder="Author (Type or Select)" list="cast-suggestions">
+                    <button class="action-btn add-btn" onclick="addQuestion()">Add Question</button>
+                </div>
+                
+                <div class="section-title">Active Questions (<span id="active-count">0</span>)</div>
+                <ul id="active-questions-list" class="question-list"></ul>
+                
+                <div class="section-title">Used Questions (<span id="used-count">0</span>)</div>
+                <ul id="used-questions-list" class="question-list"></ul>
+
+                <div class="section-title">Removed Questions (<span id="removed-count">0</span>)</div>
+                <ul id="removed-questions-list" class="question-list"></ul>
+
+                <div style="display: flex; gap: 8px; margin-top: 15px;">
+                    <button class="action-btn reset-btn" onclick="resetCycle()" style="flex: 1;">Force Reset Cycle</button>
+                    <button class="action-btn reset-btn" onclick="resetAllToDefault()" style="flex: 1;">Reset All Default</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Left Grouped Utility Buttons -->
+        <div id="utility-bar">
+            <button id="next-button" class="utility-button" onclick="nextQuestion()" title="Next Question">➡️</button>
+            <button id="answers-toggle-button" class="utility-button" onclick="toggleAnswersPanel()" title="Cast Answers">💬</button>
+            <button id="schedule-toggle-button" class="utility-button" onclick="toggleSchedulePanel()" title="Daily Automation">⏰</button>
+            <button id="blackout-button" class="utility-button" onclick="handleBlackoutClick(event)" title="Blackout / Rainbow (Shift+Space)">🔘</button>
+            <button id="edit-button" class="utility-button" onclick="toggleManagerPanel()" title="Question Manager">⚙️</button>
+        </div>
+        
+        <div id="author-footer">Soundcheck Shuffle by Israel Leslie</div>
+    </div>
+
+    <!-- Global Datalist for Cast Suggestions -->
+    <datalist id="cast-suggestions"></datalist>
+
+    <script>
+        const STORAGE_KEY_ACTIVE = 'micCheckActiveObjects'; 
+        const STORAGE_KEY_REMOVED = 'micCheckRemovedObjects';
+        const STORAGE_KEY_USED = 'micCheckUsedObjects';
+        const STORAGE_KEY_SCHEDULE_SETTINGS = 'micCheckSchedule';
+        const STORAGE_KEY_CAST_MEMBERS = 'micCheckCastMembers';
+
+        let activeQuestions = [];
+        let removedQuestions = [];
+        let usedQuestions = [];
+        let castMembers = []; 
+        let forcedNextQuestionText = null;
+        let lastQuestionText = "";
+        let isBlackedOut = true;
+        let isRainbowActive = false;
+        
+        let scheduleSettings = {
+            enabled: false,
+            times: ['08:00', '', '', ''],
+            triggeredToday: []
+        };
+
+        const defaultQuestions = [
+            "Everyone hears a sound effect when you enter the room, what is it?",
+            "What fictional character's voice would you use for an alarm clock?",
+            "You're suddenly in a commercial, what are you advertising?",
+            "Which cast member would you trust to pick your outfit for opening night?",
+            "You get a magical button that performs a mundane task for you, what does it do?",
+            "What would you do to get banned from the local library?",
+            "If you had to deliver a TED Talk right now with zero preparation. What is the topic?",
+            "If animals could talk, which species would be the rudest?",
+            "If you could make one mundane thing illegal, what would it be?",
+            "If you had to wear one color for the rest of your life, what would it be?",
+            "Who would play you in a biopic of your life?",
+            "You are a ghost haunting this theatre. How do you annoy the actors?",
+            "You are an action figure. What is the one accessory you come with?",
+            "What's a future invention from movies that you're annoyed we don't have yet?",
+            "Which font would you be?"
+        ].map(text => ({ text: text, author: "" }));
+        
+        function ensureQuestionObject(q) {
+            if (typeof q === 'string') {
+                return { text: q, author: "" };
+            }
+            return { 
+                text: q.text || "", 
+                author: (q.author || "").trim()
+            };
+        }
+
+        function getAuthorInput(qIdentifier, currentAuthor) {
+            const escapedIdentifier = qIdentifier.replace(/'/g, "\\'");
+            return `
+                <input type="text" 
+                       class="author-editor" 
+                       value="${currentAuthor || ''}" 
+                       placeholder="Author" 
+                       list="cast-suggestions"
+                       onblur="updateQuestionMetadata('${escapedIdentifier}', this.value, null)"
+                >
+            `;
+        }
+
+        function updateDatalistOptions() {
+            const datalist = document.getElementById('cast-suggestions');
+            if (!datalist) return;
+            let options = '';
+            castMembers.forEach(c => {
+                options += `<option value="${c.name}">`;
+            });
+            datalist.innerHTML = options;
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        // --- Persistence and State Management ---
+
+        function loadQuestions() {
+            const storedActive = localStorage.getItem(STORAGE_KEY_ACTIVE);
+            const storedRemoved = localStorage.getItem(STORAGE_KEY_REMOVED);
+            const storedUsed = localStorage.getItem(STORAGE_KEY_USED);
+            const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE_SETTINGS);
+            const storedCast = localStorage.getItem(STORAGE_KEY_CAST_MEMBERS);
+
+            removedQuestions = storedRemoved ? JSON.parse(storedRemoved).map(ensureQuestionObject) : [];
+            usedQuestions = storedUsed ? JSON.parse(storedUsed).map(ensureQuestionObject) : [];
+
+            if (storedActive) {
+                activeQuestions = JSON.parse(storedActive).map(ensureQuestionObject);
+            } else {
+                activeQuestions = [...defaultQuestions];
+                shuffleArray(activeQuestions);
+            }
+            
+            if (storedSchedule) {
+                const parsedSchedule = JSON.parse(storedSchedule);
+                if (parsedSchedule.switchTime && !parsedSchedule.times) {
+                    scheduleSettings = {
+                        enabled: parsedSchedule.enabled,
+                        times: [parsedSchedule.switchTime, '', '', ''],
+                        triggeredToday: []
+                    };
+                } else {
+                    scheduleSettings = parsedSchedule;
+                    if (!Array.isArray(scheduleSettings.times)) {
+                        scheduleSettings.times = ['08:00', '', '', ''];
+                    }
+                }
+            }
+
+            if (storedCast) {
+                castMembers = JSON.parse(storedCast).map(c => ({ name: c.name, answer: "" }));
+            }
+            
+            if (activeQuestions.length === 0 && usedQuestions.length > 0) {
+                activeQuestions = usedQuestions;
+                usedQuestions = [];
+                shuffleArray(activeQuestions);
+            }
+            
+            saveQuestions(false); 
+            renderAnswersPanel();
+            renderSchedulePanel();
+            updateDatalistOptions();
+        }
+
+        function saveQuestions(updateUI = true) {
+            localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(activeQuestions));
+            localStorage.setItem(STORAGE_KEY_REMOVED, JSON.stringify(removedQuestions));
+            localStorage.setItem(STORAGE_KEY_USED, JSON.stringify(usedQuestions));
+            localStorage.setItem(STORAGE_KEY_SCHEDULE_SETTINGS, JSON.stringify(scheduleSettings));
+            localStorage.setItem(STORAGE_KEY_CAST_MEMBERS, JSON.stringify(castMembers));
+
+            if (updateUI) {
+                updateManagerUI();
+            }
+        }
+
+        function saveCastAnswersOnly() {
+            localStorage.setItem(STORAGE_KEY_CAST_MEMBERS, JSON.stringify(castMembers));
+        }
+
+        function saveScheduleSettings() {
+            scheduleSettings.enabled = document.getElementById('schedule-toggle').checked;
+            for (let i = 0; i < 4; i++) {
+                const inputEl = document.getElementById(`schedule-time-${i}`);
+                if (inputEl) {
+                    scheduleSettings.times[i] = inputEl.value;
+                }
+            }
+            localStorage.setItem(STORAGE_KEY_SCHEDULE_SETTINGS, JSON.stringify(scheduleSettings));
+            if (scheduleSettings.enabled) {
+                checkDailySwitch();
+            }
+        }
+        
+        // --- Floating Pop-ups & Drag Logic ---
+
+        function toggleAnswersPanel() {
+            const panel = document.getElementById('floating-answers-panel');
+            const btn = document.getElementById('answers-toggle-button');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+                btn.classList.add('active-reveal');
+            } else {
+                panel.style.display = 'none';
+                btn.classList.remove('active-reveal');
+            }
+        }
+
+        function toggleSchedulePanel() {
+            const panel = document.getElementById('floating-schedule-panel');
+            const btn = document.getElementById('schedule-toggle-button');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+                btn.classList.add('active-reveal');
+                renderSchedulePanel();
+            } else {
+                panel.style.display = 'none';
+                btn.classList.remove('active-reveal');
+            }
+        }
+
+        function toggleManagerPanel() {
+            const panel = document.getElementById('floating-manager-panel');
+            const btn = document.getElementById('edit-button');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+                btn.classList.add('active-reveal');
+                updateDatalistOptions();
+                updateManagerUI();
+            } else {
+                panel.style.display = 'none';
+                btn.classList.remove('active-reveal');
+            }
+        }
+
+        function makeDraggable(panelId, headerId) {
+            const panel = document.getElementById(panelId);
+            const header = document.getElementById(headerId);
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                const rect = panel.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+                panel.style.right = 'auto'; 
+                panel.style.left = initialLeft + 'px';
+                panel.style.top = initialTop + 'px';
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                e.preventDefault();
+            });
+
+            function onMouseMove(e) {
+                if (!isDragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                panel.style.left = (initialLeft + dx) + 'px';
+                panel.style.top = (initialTop + dy) + 'px';
+            }
+
+            function onMouseUp() {
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+        }
+
+        makeDraggable('floating-answers-panel', 'answers-header');
+        makeDraggable('floating-schedule-panel', 'schedule-header');
+        makeDraggable('floating-manager-panel', 'manager-header');
+
+        function renderSchedulePanel() {
+            document.getElementById('schedule-toggle').checked = scheduleSettings.enabled;
+            const container = document.getElementById('schedule-times-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 4; i++) {
+                const timeVal = scheduleSettings.times[i] || '';
+                const row = document.createElement('div');
+                row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px;';
+                row.innerHTML = `
+                    <span style="font-size: 0.8rem; color: var(--subtle-text);">Time ${i + 1}:</span>
+                    <input type="time" id="schedule-time-${i}" value="${timeVal}" class="time-input" onchange="saveScheduleSettings()">
+                `;
+                container.appendChild(row);
+            }
+
+            const lastSwitchDateEl = document.getElementById('last-switch-date');
+            if (scheduleSettings.lastSwitchDate) {
+                lastSwitchDateEl.innerText = new Date(scheduleSettings.lastSwitchDate).toLocaleString();
+            } else {
+                lastSwitchDateEl.innerText = "Never";
+            }
+        }
+
+        function addCastMember() {
+            const input = document.getElementById('new-person-input');
+            const name = input.value.trim();
+            if (!name) return;
+
+            if (castMembers.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+                alert("A cast member with this name already exists.");
+                return;
+            }
+
+            castMembers.push({ name: name, answer: "" });
+            saveCastAnswersOnly();
+            renderAnswersPanel();
+            updateDatalistOptions();
+            input.value = '';
+        }
+
+        function removeCastMember(name) {
+            castMembers = castMembers.filter(c => c.name !== name);
+            saveCastAnswersOnly();
+            renderAnswersPanel();
+            updateDatalistOptions();
+        }
+
+        function updateCastAnswer(name, answerText) {
+            const member = castMembers.find(c => c.name === name);
+            if (member) {
+                member.answer = answerText;
+                saveCastAnswersOnly();
+            }
+        }
+
+        function renderAnswersPanel() {
+            const listEl = document.getElementById('answers-list');
+            listEl.innerHTML = '';
+
+            if (castMembers.length === 0) {
+                listEl.innerHTML = `<li style="color: var(--subtle-text); font-size: 0.8rem; text-align: center; padding: 6px;">No cast members added yet.</li>`;
+                return;
+            }
+
+            castMembers.forEach(c => {
+                const escapedName = c.name.replace(/'/g, "\\'");
+                const item = document.createElement('li');
+                item.className = 'answer-row';
+                item.innerHTML = `
+                    <span class="answer-name" title="${c.name}">${c.name}</span>
+                    <input type="text" class="answer-input" value="${c.answer}" placeholder="Answer..." oninput="updateCastAnswer('${escapedName}', this.value)">
+                    <button class="delete-person-btn" onclick="removeCastMember('${escapedName}')">&times;</button>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+        
+        // --- Metadata Logic ---
+        
+        function updateQuestionMetadata(oldText, newAuthor, newText) {
+            const targetArray = activeQuestions;
+            const index = targetArray.findIndex(q => q.text === oldText);
+
+            if (index > -1) {
+                if (newText !== null && newText.trim() !== "") {
+                    const allOthers = [...activeQuestions.slice(0, index), ...activeQuestions.slice(index + 1), ...usedQuestions, ...removedQuestions];
+                    if (allOthers.some(q => q.text === newText.trim())) {
+                        alert("A question with this text already exists in one of the lists.");
+                        updateManagerUI(); 
+                        return;
+                    }
+                    targetArray[index].text = newText.trim();
+                } else if (newText !== null && newText.trim() === "") {
+                    alert("Question text cannot be empty.");
+                    updateManagerUI(); 
+                    return;
+                }
+                
+                if (newAuthor !== null) {
+                    targetArray[index].author = newAuthor.trim();
+                }
+                
+                saveQuestions();
+            }
+        }
+
+        // --- Blackout/Rainbow/Confetti Logic ---
+        
+        let confettiCanvas, confettiCtx;
+        let confettiParticles = [];
+        let confettiAnimationId = null;
+
+        function initConfetti() {
+            confettiCanvas = document.getElementById('confetti-canvas');
+            if (!confettiCanvas) {
+                confettiCanvas = document.createElement('canvas');
+                confettiCanvas.id = 'confetti-canvas';
+                confettiCanvas.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999; display:none;';
+                document.body.appendChild(confettiCanvas);
+            }
+            confettiCtx = confettiCanvas.getContext('2d');
+        }
+
+        function resizeConfettiCanvas() {
+            if (confettiCanvas) {
+                confettiCanvas.width = window.innerWidth;
+                confettiCanvas.height = window.innerHeight;
+            }
+        }
+
+        window.addEventListener('resize', resizeConfettiCanvas);
+
+        function startConfetti() {
+            initConfetti();
+            resizeConfettiCanvas();
+            confettiCanvas.style.display = 'block';
+            confettiParticles = [];
+            const colors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#ff69b4', '#00ffff', '#ffd700'];
+            
+            for (let i = 0; i < 150; i++) {
+                confettiParticles.push({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speedY: Math.random() * 3 + 2,
+                    speedX: (Math.random() - 0.5) * 2,
+                    rotation: Math.random() * 360,
+                    rotationSpeed: (Math.random() - 0.5) * 10
+                });
+            }
+
+            function updateConfetti() {
+                if (!isRainbowActive) return;
+                confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                
+                confettiParticles.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    p.rotation += p.rotationSpeed;
+
+                    if (p.y > confettiCanvas.height) {
+                        p.y = -10;
+                        p.x = Math.random() * confettiCanvas.width;
+                    }
+
+                    confettiCtx.save();
+                    confettiCtx.translate(p.x, p.y);
+                    confettiCtx.rotate((p.rotation * Math.PI) / 180);
+                    confettiCtx.fillStyle = p.color;
+                    confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                    confettiCtx.restore();
+                });
+
+                confettiAnimationId = requestAnimationFrame(updateConfetti);
+            }
+
+            updateConfetti();
+        }
+
+        function stopConfetti() {
+            if (confettiAnimationId) {
+                cancelAnimationFrame(confettiAnimationId);
+                confettiAnimationId = null;
+            }
+            if (confettiCanvas) {
+                confettiCanvas.style.display = 'none';
+                if (confettiCtx) {
+                    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                }
+            }
+            confettiParticles = [];
+        }
+
+        function handleBlackoutClick(event) {
+            if (event.shiftKey) {
+                toggleRainbow();
+            } else {
+                toggleBlackout();
+            }
+            event.preventDefault(); 
+        }
+
+        window.addEventListener('keydown', (event) => {
+            if (event.shiftKey && event.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                event.preventDefault();
+                toggleRainbow();
+            }
+        });
+
+        function toggleBlackout() {
+            const questionEl = document.getElementById('question');
+            const authorEl = document.getElementById('question-author');
+            const button = document.getElementById('blackout-button');
+            isBlackedOut = !isBlackedOut;
+            
+            if (isBlackedOut) {
+                questionEl.classList.add('blacked-out');
+                authorEl.classList.add('blacked-out');
+                button.classList.remove('active-reveal');
+            } else {
+                questionEl.classList.remove('blacked-out');
+                authorEl.classList.remove('blacked-out');
+                button.classList.add('active-reveal');
+            }
+        }
+        
+        function enforceBlackout() {
+            isBlackedOut = true;
+            document.getElementById('question').classList.add('blacked-out');
+            document.getElementById('question-author').classList.add('blacked-out');
+            document.getElementById('blackout-button').classList.remove('active-reveal');
+        }
+        
+        function toggleRainbow() {
+            const questionEl = document.getElementById('question');
+            const authorEl = document.getElementById('question-author');
+            isRainbowActive = !isRainbowActive;
+            
+            if (isRainbowActive) {
+                questionEl.classList.add('rainbow-text');
+                questionEl.classList.remove('blacked-out');
+                authorEl.classList.remove('blacked-out');
+                document.getElementById('blackout-button').classList.add('active-reveal');
+                isBlackedOut = false;
+                startConfetti();
+            } else {
+                questionEl.classList.remove('rainbow-text');
+                stopConfetti();
+            }
+        }
+        
+        // --- Main App Logic ---
+
+        function setForcedNext(qText) {
+            forcedNextQuestionText = qText;
+            alert(`"${qText}" has been set as the next question!`);
+            toggleManagerPanel();
+        }
+
+        function nextQuestion() {
+            const display = document.getElementById('question');
+            const authorDisplay = document.getElementById('question-author');
+            
+            if (isRainbowActive) {
+                isRainbowActive = false;
+                display.classList.remove('rainbow-text');
+                stopConfetti();
+            }
+            
+            castMembers.forEach(c => c.answer = "");
+            saveCastAnswersOnly();
+            renderAnswersPanel();
+            
+            let questionToMove = null;
+
+            if (forcedNextQuestionText) {
+                const activeIndex = activeQuestions.findIndex(q => q.text === forcedNextQuestionText);
+                if (activeIndex > -1) {
+                    questionToMove = activeQuestions.splice(activeIndex, 1)[0];
+                } else {
+                    const usedIndex = usedQuestions.findIndex(q => q.text === forcedNextQuestionText);
+                    if (usedIndex > -1) {
+                        questionToMove = usedQuestions.splice(usedIndex, 1)[0];
+                    }
+                }
+                forcedNextQuestionText = null;
+            }
+
+            if (!questionToMove) {
+                if (activeQuestions.length === 0) {
+                    if (usedQuestions.length > 0) {
+                        activeQuestions = usedQuestions;
+                        usedQuestions = [];
+                        shuffleArray(activeQuestions);
+                        saveQuestions();
+                        
+                        display.innerText = "Cycle Reset: All questions are back in the pool!";
+                        authorDisplay.innerText = "";
+                        document.getElementById('question').classList.remove('blacked-out');
+                        document.getElementById('question-author').classList.remove('blacked-out');
+                        document.getElementById('blackout-button').classList.add('active-reveal');
+
+                        setTimeout(() => nextQuestion(), 2000); 
+                        return;
+                    } else {
+                        display.innerText = "All questions used! Add more or reset cycle.";
+                        authorDisplay.innerText = "";
+                        enforceBlackout();
+                        return;
+                    }
+                }
+
+                const randomIndex = Math.floor(Math.random() * activeQuestions.length);
+                questionToMove = activeQuestions[randomIndex];
+                activeQuestions.splice(randomIndex, 1);
+            }
+            
+            lastQuestionText = questionToMove.text;
+            usedQuestions.push(questionToMove);
+            saveQuestions();
+
+            display.innerText = questionToMove.text;
+            authorDisplay.innerText = questionToMove.author ? `— ${questionToMove.author}` : "";
+            enforceBlackout();
+        }
+        
+        // --- Scheduling Logic ---
+        
+        function checkDailySwitch() {
+            if (!scheduleSettings.enabled) {
+                return;
+            }
+
+            const now = new Date();
+            const todayDateStr = now.toISOString().split('T')[0];
+            
+            if (scheduleSettings.lastResetDate !== todayDateStr) {
+                scheduleSettings.triggeredToday = [];
+                scheduleSettings.lastResetDate = todayDateStr;
+            }
+
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+            scheduleSettings.times.forEach(timeStr => {
+                if (!timeStr) return;
+                const [h, m] = timeStr.split(':').map(Number);
+                const targetMinutes = h * 60 + m;
+
+                if (nowMinutes >= targetMinutes && !scheduleSettings.triggeredToday.includes(timeStr)) {
+                    scheduleSettings.triggeredToday.push(timeStr);
+                    scheduleSettings.lastSwitchDate = now.toISOString();
+                    localStorage.setItem(STORAGE_KEY_SCHEDULE_SETTINGS, JSON.stringify(scheduleSettings));
+
+                    nextQuestion();
+                    renderSchedulePanel();
+                }
+            });
+        }
+
+        // --- Manager UI Rendering ---
+
+        function updateManagerUI() {
+            const activeList = document.getElementById('active-questions-list');
+            const usedList = document.getElementById('used-questions-list');
+            const removedList = document.getElementById('removed-questions-list');
+            
+            document.getElementById('active-count').innerText = activeQuestions.length;
+            document.getElementById('used-count').innerText = usedQuestions.length;
+            document.getElementById('removed-count').innerText = removedQuestions.length;
+
+            activeList.innerHTML = '';
+            usedList.innerHTML = '';
+            removedList.innerHTML = '';
+
+            activeQuestions.forEach(q => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                const escapedQText = q.text.replace(/'/g, "\\'"); 
+
+                item.innerHTML = `
+                    <div class="question-item-content">
+                        <input type="text" 
+                               class="question-text-input" 
+                               value="${q.text}" 
+                               onblur="updateQuestionMetadata('${escapedQText}', null, this.value)"
+                        >
+                        <div class="question-metadata-editor">
+                            ${getAuthorInput(q.text, q.author)}
+                        </div>
+                    </div>
+                    <div class="item-action-group">
+                        <button class="action-btn set-next-btn" onclick="setForcedNext('${escapedQText}')">Set Next</button>
+                        <button class="action-btn remove-btn" onclick="removeQuestion('${escapedQText}')">Remove</button>
+                    </div>
+                `;
+                activeList.appendChild(item);
+            });
+            
+            usedQuestions.forEach(q => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                const escapedQText = q.text.replace(/'/g, "\\'");
+                item.innerHTML = `
+                    <div class="question-item-content">
+                        <span style="font-size:0.85rem; text-align:left;">${q.text}</span>
+                        <div class="question-metadata-editor">
+                            ${q.author ? `<span class="author-display">By: ${q.author}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="item-action-group">
+                        <button class="action-btn restore-btn" onclick="restoreUsedQuestion('${escapedQText}')">Restore</button>
+                        <button class="action-btn remove-btn" onclick="removeQuestion('${escapedQText}')">Remove</button>
+                    </div>
+                `;
+                usedList.appendChild(item);
+            });
+            
+            removedQuestions.forEach(q => {
+                const item = document.createElement('li');
+                item.className = 'question-item';
+                item.innerHTML = `
+                    <span class="removed-text">${q.text}</span>
+                    <div class="item-action-group">
+                        <button class="action-btn restore-btn" onclick="restoreQuestion('${q.text.replace(/'/g, "\\'")}')">Restore</button>
+                    </div>
+                `;
+                removedList.appendChild(item);
+            });
+        }
+
+        function addQuestion() {
+            const input = document.getElementById('new-question-input');
+            const authorInput = document.getElementById('new-question-author-input');
+            const newQText = input.value.trim();
+            const newQAuthor = authorInput ? authorInput.value.trim() : "";
+            
+            if (!newQText) return;
+
+            const allQuestions = [...activeQuestions, ...usedQuestions, ...removedQuestions];
+            if (allQuestions.some(q => q.text.trim() === newQText)) { 
+                 alert("This question already exists in one of the lists."); 
+                 return;
+            }
+            
+            const newQuestion = {
+                text: newQText,
+                author: newQAuthor
+            };
+
+            activeQuestions.push(newQuestion);
+            shuffleArray(activeQuestions);
+            saveQuestions();
+            
+            input.value = '';
+            if(authorInput) authorInput.value = '';
+        }
+
+        function removeQuestion(qText) {
+            let removedQ = null;
+
+            const activeIndex = activeQuestions.findIndex(q => q.text === qText);
+            if (activeIndex !== -1) {
+                removedQ = activeQuestions.splice(activeIndex, 1)[0];
+            } else {
+                const usedIndex = usedQuestions.findIndex(q => q.text === qText);
+                if (usedIndex !== -1) {
+                    removedQ = usedQuestions.splice(usedIndex, 1)[0];
+                }
+            }
+            
+            if(removedQ) {
+                removedQuestions.push(removedQ);
+            }
+
+            saveQuestions();
+        }
+
+        function restoreQuestion(qText) {
+            const removedIndex = removedQuestions.findIndex(q => q.text === qText);
+            if (removedIndex > -1) {
+                const restoredQ = removedQuestions.splice(removedIndex, 1)[0];
+                activeQuestions.push(restoredQ);
+                shuffleArray(activeQuestions);
+                saveQuestions();
+            }
+        }
+
+        function restoreUsedQuestion(qText) {
+            const usedIndex = usedQuestions.findIndex(q => q.text === qText);
+            if (usedIndex > -1) {
+                const restoredQ = usedQuestions.splice(usedIndex, 1)[0];
+                activeQuestions.push(restoredQ);
+                saveQuestions();
+            }
+        }
+
+        function resetCycle() {
+            if (!confirm('Are you sure you want to force a cycle reset?')) return;
+            
+            activeQuestions = [...usedQuestions, ...activeQuestions];
+            usedQuestions = [];
+            shuffleArray(activeQuestions);
+            saveQuestions();
+            
+            document.getElementById('question').innerText = "Cycle Reset: All questions are back in the Active pool!";
+            document.getElementById('question-author').innerText = "";
+            if (isRainbowActive) {
+                toggleRainbow();
+            }
+            enforceBlackout();
+            toggleManagerPanel();
+        }
+
+        function resetAllToDefault() {
+            if (!confirm('Are you sure you want to reset ALL lists to the original 15 default questions?')) return;
+            
+            activeQuestions = [...defaultQuestions];
+            removedQuestions = [];
+            usedQuestions = [];
+            forcedNextQuestionText = null;
+            shuffleArray(activeQuestions);
+            
+            saveQuestions();
+            document.getElementById('question').innerText = "FULL Reset Complete. Ready.";
+            document.getElementById('question-author').innerText = "";
+            if (isRainbowActive) {
+                toggleRainbow();
+            }
+            enforceBlackout();
+            toggleManagerPanel();
+        }
+        
+        // --- Initialization ---
+        window.onload = () => {
+            loadQuestions();
+            enforceBlackout();
+            
+            document.title = "SoundCheck Shuffle";
+            document.getElementById('question').innerText = "Ready?";
+            document.getElementById('question-author').innerText = "";
+            
+            checkDailySwitch();
+            setInterval(checkDailySwitch, 30000); 
+        };
+    </script>
+</body>
+</html>
